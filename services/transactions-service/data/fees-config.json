@@ -1,0 +1,10 @@
+{
+  "INTERNAL_TRANSFER": 0.5,
+  "INTERBANK_TRANSFER": 2,
+  "CURRENCY_CONVERSION": 1,
+  "WITHDRAWAL": {
+    "sameBank": 0,
+    "otherBank": 5
+  }
+}
+

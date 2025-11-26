@@ -1,0 +1,21 @@
+[
+  {
+    "accountId": "ACC_123",
+    "balance": 5500,
+    "currency": "TND",
+    "status": "active",
+    "owner": "User1",
+    "customLimits": {
+      "dailyWithdrawal": 8000,
+      "dailyTransfer": 15000,
+      "singleTransaction": 2000
+    }
+  },
+  {
+    "accountId": "ACC_456",
+    "balance": 3000,
+    "currency": "TND",
+    "status": "active",
+    "owner": "User2"
+  }
+]

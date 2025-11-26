@@ -1,0 +1,18 @@
+[
+  {
+    "transactionId": "TXN_48C67E31",
+    "type": "deposit",
+    "fromAccount": null,
+    "toAccount": "ACC_123",
+    "amount": 500,
+    "currency": "TND",
+    "fees": 0,
+    "commission": 0,
+    "status": "completed",
+    "timestamp": "2025-11-23T14:27:14.497Z",
+    "description": "My First Deposit",
+    "reference": null,
+    "securityLevel": "low",
+    "fraudFlag": false
+  }
+]
