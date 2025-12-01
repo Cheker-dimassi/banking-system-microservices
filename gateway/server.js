@@ -28,6 +28,10 @@ const services = {
   categories: {
     url: process.env.CATEGORIES_SERVICE_URL || 'http://localhost:3002',
     health: '/health'
+  },
+  accounts: {
+    url: process.env.ACCOUNTS_SERVICE_URL || 'http://localhost:3004',
+    health: '/health'
   }
 };
 
@@ -71,6 +75,45 @@ app.use('/api/categories', createProxyMiddleware({
   }
 }));
 
+// Proxy middleware for Accounts Service
+app.use('/api/comptes', createProxyMiddleware({
+  target: services.accounts.url,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/comptes': '/api/comptes' // Keep /api/comptes prefix
+  },
+  onError: (err, req, res) => {
+    console.error('Accounts service error:', err.message);
+    res.status(503).json({
+      success: false,
+      error: 'Accounts service unavailable',
+      message: 'The accounts service is currently unavailable. Please try again later.'
+    });
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[Gateway] ${req.method} ${req.url} -> ${services.accounts.url}${req.url}`);
+  }
+}));
+
+app.use('/api/mouvements', createProxyMiddleware({
+  target: services.accounts.url,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/mouvements': '/api/mouvements' // Keep /api/mouvements prefix
+  },
+  onError: (err, req, res) => {
+    console.error('Accounts service error:', err.message);
+    res.status(503).json({
+      success: false,
+      error: 'Accounts service unavailable',
+      message: 'The accounts service is currently unavailable. Please try again later.'
+    });
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[Gateway] ${req.method} ${req.url} -> ${services.accounts.url}${req.url}`);
+  }
+}));
+
 // API Documentation endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -80,6 +123,8 @@ app.get('/', (req, res) => {
     endpoints: {
       transactions: '/api/transactions',
       categories: '/api/categories',
+      accounts: '/api/comptes',
+      movements: '/api/mouvements',
       health: '/health'
     },
     services: Object.keys(services).map(key => ({
@@ -100,5 +145,7 @@ app.listen(PORT, () => {
   console.log(`\n📍 Access gateway at: http://localhost:${PORT}`);
   console.log(`📍 Transactions API: http://localhost:${PORT}/api/transactions`);
   console.log(`📍 Categories API: http://localhost:${PORT}/api/categories`);
+  console.log(`📍 Accounts API: http://localhost:${PORT}/api/comptes`);
+  console.log(`📍 Movements API: http://localhost:${PORT}/api/mouvements`);
 });
 
