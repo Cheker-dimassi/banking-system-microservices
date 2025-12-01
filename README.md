@@ -6,7 +6,9 @@ Chaque microservice est développé par un membre différent et versionné dans 
 ### Microservices
 - `services/auth-service` · Authentification, KYC, rôles (Dhafer Sellami)
 - `services/accounts-service` · Gestion des comptes courants/épargne (Aymen Somai)
+  - **Note:** Le service Account est également disponible dans `src/` (TypeScript) - voir documentation dans `src/`
 - `services/transactions-service` · Dépôts, retraits, virements, atomicité (Chaker Allah Dimassi)
+- `services/category-service` · Gestion des catégories de transactions (Chaker Allah Dimassi)
 - `services/payments-service` · Paiement de factures, cartes virtuelles
 - `services/notifications-service` · Emails/SMS/push
 - `services/audit-service` · Journalisation et traçabilité
@@ -18,6 +20,15 @@ Chaque microservice est développé par un membre différent et versionné dans 
 2. Copier `.env.example` vers `.env` et compléter les secrets.
 3. Lancer `docker compose up --build` pour démarrer les dépendances communes (DB, bus de messages, etc.).  
 4. Démarrer votre microservice en local (`npm run dev`, `nest start`, etc.). Les ports par défaut sont listés dans `docs/architecture.md`.
+
+### Démarrer tous les services
+```bash
+# Installer les dépendances root
+npm install
+
+# Démarrer tous les services (Gateway + Transactions + Categories + Accounts)
+npm run dev
+```
 
 ### Conventions d'équipe
 - **Branches** : `service/<name>-<description>` (ex: `service/transactions-saga`).
@@ -34,9 +45,11 @@ services/
   auth-service/
   accounts-service/
   transactions-service/
+  category-service/
   payments-service/
   notifications-service/
   audit-service/
+src/                   # Account Service (TypeScript) - Aymen Somai
 infrastructure/        # IaC, Docker, pipelines
 .github/               # Workflows + templates
 ```
@@ -44,4 +57,3 @@ infrastructure/        # IaC, Docker, pipelines
 ### Contribution
 Lire `CONTRIBUTING.md` pour le workflow détaillé (issues, PR, qualité).  
 Chaque service garde son README avec instructions techniques spécifiques.
-
