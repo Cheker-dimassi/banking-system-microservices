@@ -10,12 +10,16 @@ function checkSuspiciousAmount(amount) {
   return amount >= SECURITY_RULES.SUSPICIOUS_AMOUNT;
 }
 
-function checkRapidTransactions(accountId, hours = 1) {
-  const transactions = Transaction.findByAccountId(accountId);
+async function checkRapidTransactions(accountId, hours = 1) {
+  if (!accountId) return false;
+  
+  const transactions = await Transaction.findByAccountId(accountId);
+  const transactionsArray = Array.isArray(transactions) ? transactions : [];
   const now = new Date();
   const hourAgo = new Date(now.getTime() - hours * 60 * 60 * 1000);
   
-  const recentTransactions = transactions.filter(t => {
+  const recentTransactions = transactionsArray.filter(t => {
+    if (!t || !t.timestamp) return false;
     const tDate = new Date(t.timestamp);
     return tDate >= hourAgo && t.status === 'completed';
   });
@@ -30,8 +34,8 @@ function checkBusinessHours() {
          hour < SECURITY_RULES.BUSINESS_HOURS.end;
 }
 
-function determineSecurityLevel(amount, accountId) {
-  if (checkSuspiciousAmount(amount) || checkRapidTransactions(accountId)) {
+async function determineSecurityLevel(amount, accountId) {
+  if (checkSuspiciousAmount(amount) || await checkRapidTransactions(accountId)) {
     return 'high';
   } else if (amount >= 5000) {
     return 'medium';
@@ -39,14 +43,14 @@ function determineSecurityLevel(amount, accountId) {
   return 'low';
 }
 
-function detectFraud(transaction) {
+async function detectFraud(transaction) {
   const fraudFlags = [];
   
   if (checkSuspiciousAmount(transaction.amount)) {
     fraudFlags.push('SUSPICIOUS_AMOUNT');
   }
   
-  if (checkRapidTransactions(transaction.fromAccount || transaction.toAccount)) {
+  if (await checkRapidTransactions(transaction.fromAccount || transaction.toAccount)) {
     fraudFlags.push('RAPID_TRANSACTIONS');
   }
   
@@ -54,16 +58,24 @@ function detectFraud(transaction) {
     fraudFlags.push('OUTSIDE_BUSINESS_HOURS');
   }
   
+  const securityLevel = await determineSecurityLevel(transaction.amount, transaction.fromAccount || transaction.toAccount);
+  
   return {
     isFraud: fraudFlags.length > 0,
     flags: fraudFlags,
-    securityLevel: determineSecurityLevel(transaction.amount, transaction.fromAccount || transaction.toAccount)
+    securityLevel
   };
 }
 
-function getSuspiciousTransactions(accountId) {
-  const transactions = Transaction.findByAccountId(accountId);
-  return transactions.filter(t => t.fraudFlag === true || t.securityLevel === 'high');
+async function getSuspiciousTransactions(accountId) {
+  if (!accountId) return [];
+  
+  const transactions = await Transaction.findByAccountId(accountId);
+  const transactionsArray = Array.isArray(transactions) ? transactions : [];
+  
+  return transactionsArray.filter(t => {
+    return t && (t.fraudFlag === true || t.securityLevel === 'high');
+  });
 }
 
 module.exports = {

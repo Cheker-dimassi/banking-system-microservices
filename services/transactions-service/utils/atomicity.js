@@ -117,14 +117,30 @@ async function executeTransactionSaga(transactionData) {
 }
 
 async function reverseTransaction(transactionId) {
-  const transaction = await Transaction.findOne({ transactionId });
+  // Try to find by transactionId first
+  let transaction = await Transaction.findOne({ transactionId });
+  
+  // If not found by transactionId, try MongoDB _id
+  if (!transaction && transactionId.match(/^[0-9a-fA-F]{24}$/)) {
+    transaction = await Transaction.findById(transactionId);
+  }
+  
+  // If still not found, try partial match
+  if (!transaction) {
+    transaction = await Transaction.findOne({ 
+      $or: [
+        { transactionId: transactionId },
+        { transactionId: { $regex: transactionId, $options: 'i' } }
+      ]
+    });
+  }
 
   if (!transaction) {
-    throw new Error('Transaction not found');
+    throw new Error(`Transaction not found: ${transactionId}. Make sure you are using the correct transactionId (e.g., TXN_XXXXXXXX). List all transactions with GET /transactions to see available IDs.`);
   }
 
   if (transaction.status !== 'completed') {
-    throw new Error('Only completed transactions can be reversed');
+    throw new Error(`Only completed transactions can be reversed. Current status: ${transaction.status}`);
   }
 
   if (transaction.status === 'reversed') {
@@ -141,7 +157,9 @@ async function reverseTransaction(transactionId) {
       currency: transaction.currency,
       fees: 0,
       description: `Reversal of ${transaction.transactionId}`,
-      reference: transaction.transactionId
+      reference: transaction.transactionId,
+      categoryId: transaction.categoryId || null,
+      categoryName: transaction.categoryName || null
     };
 
     const reversalResult = await executeTransactionSaga(reversalData);

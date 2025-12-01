@@ -6,14 +6,46 @@ const {
 } = require('../utils/limits');
 const { detectFraud, getSuspiciousTransactions } = require('../utils/fraudDetection');
 const { calculateFees, getFeesConfig } = require('../middleware/fees');
+const { fetchCategory } = require('../utils/categoryService');
+
+async function resolveCategoryDetails(categoryId) {
+  if (!categoryId || typeof categoryId !== 'string' || categoryId.trim() === '') {
+    return { categoryId: null, categoryName: null };
+  }
+
+  const trimmedId = categoryId.trim();
+
+  try {
+    const category = await fetchCategory(trimmedId);
+    if (!category) {
+      throw new Error(`Category '${trimmedId}' not found. Please create it first in the Category service.`);
+    }
+    return {
+      categoryId: category.categoryId || trimmedId,
+      categoryName: category.name || trimmedId
+    };
+  } catch (error) {
+    if (error.message && error.message.includes('Unable to verify category')) {
+      throw new Error(error.message);
+    }
+    throw new Error(`Category '${trimmedId}' not found. Please create it first in the Category service.`);
+  }
+}
 
 // ==================== MÉTIER 1: Core Transaction Processing ====================
 
 async function deposit(req, res) {
   try {
-    const { toAccount, amount, currency = 'TND', description = '' } = req.body;
+    const { toAccount, amount, currency = 'TND', description = '', categoryId } = req.body;
     const fees = req.calculatedFees?.fees || 0;
     const fraudCheck = req.fraudCheck || { flagged: false, securityLevel: 'low' };
+
+    let categoryInfo = { categoryId: null, categoryName: null };
+    try {
+      categoryInfo = await resolveCategoryDetails(categoryId);
+    } catch (categoryError) {
+      return res.status(400).json({ success: false, error: categoryError.message });
+    }
 
     const transactionData = {
       type: 'deposit',
@@ -24,7 +56,9 @@ async function deposit(req, res) {
       commission: 0,
       description,
       securityLevel: fraudCheck.securityLevel,
-      fraudFlag: fraudCheck.flagged
+      fraudFlag: fraudCheck.flagged,
+      categoryId: categoryInfo.categoryId,
+      categoryName: categoryInfo.categoryName
     };
 
     const result = await executeTransactionSaga(transactionData);
@@ -49,9 +83,16 @@ async function deposit(req, res) {
 
 async function withdrawal(req, res) {
   try {
-    const { fromAccount, amount, currency = 'TND', description = '' } = req.body;
+    const { fromAccount, amount, currency = 'TND', description = '', categoryId } = req.body;
     const fees = req.calculatedFees?.fees || 0;
     const fraudCheck = req.fraudCheck || { flagged: false, securityLevel: 'low' };
+
+    let categoryInfo = { categoryId: null, categoryName: null };
+    try {
+      categoryInfo = await resolveCategoryDetails(categoryId);
+    } catch (categoryError) {
+      return res.status(400).json({ success: false, error: categoryError.message });
+    }
 
     const transactionData = {
       type: 'withdrawal',
@@ -62,7 +103,9 @@ async function withdrawal(req, res) {
       commission: 0,
       description,
       securityLevel: fraudCheck.securityLevel,
-      fraudFlag: fraudCheck.flagged
+      fraudFlag: fraudCheck.flagged,
+      categoryId: categoryInfo.categoryId,
+      categoryName: categoryInfo.categoryName
     };
 
     const result = await executeTransactionSaga(transactionData);
@@ -87,10 +130,17 @@ async function withdrawal(req, res) {
 
 async function internalTransfer(req, res) {
   try {
-    const { fromAccount, toAccount, amount, currency = 'TND', description = '' } = req.body;
+    const { fromAccount, toAccount, amount, currency = 'TND', description = '', categoryId } = req.body;
     const fees = req.calculatedFees?.fees || 0;
     const commission = req.calculatedFees?.commission || 0;
     const fraudCheck = req.fraudCheck || { flagged: false, securityLevel: 'low' };
+
+    let categoryInfo = { categoryId: null, categoryName: null };
+    try {
+      categoryInfo = await resolveCategoryDetails(categoryId);
+    } catch (categoryError) {
+      return res.status(400).json({ success: false, error: categoryError.message });
+    }
 
     const transactionData = {
       type: 'internal_transfer',
@@ -102,7 +152,9 @@ async function internalTransfer(req, res) {
       commission,
       description,
       securityLevel: fraudCheck.securityLevel,
-      fraudFlag: fraudCheck.flagged
+      fraudFlag: fraudCheck.flagged,
+      categoryId: categoryInfo.categoryId,
+      categoryName: categoryInfo.categoryName
     };
 
     const result = await executeTransactionSaga(transactionData);
@@ -127,10 +179,17 @@ async function internalTransfer(req, res) {
 
 async function interbankTransfer(req, res) {
   try {
-    const { fromAccount, toAccount, amount, currency = 'TND', description = '' } = req.body;
+    const { fromAccount, toAccount, amount, currency = 'TND', description = '', categoryId } = req.body;
     const fees = req.calculatedFees?.fees || 0;
     const commission = req.calculatedFees?.commission || 0;
     const fraudCheck = req.fraudCheck || { flagged: false, securityLevel: 'low' };
+
+    let categoryInfo = { categoryId: null, categoryName: null };
+    try {
+      categoryInfo = await resolveCategoryDetails(categoryId);
+    } catch (categoryError) {
+      return res.status(400).json({ success: false, error: categoryError.message });
+    }
 
     const transactionData = {
       type: 'interbank_transfer',
@@ -142,7 +201,9 @@ async function interbankTransfer(req, res) {
       commission,
       description,
       securityLevel: fraudCheck.securityLevel,
-      fraudFlag: fraudCheck.flagged
+      fraudFlag: fraudCheck.flagged,
+      categoryId: categoryInfo.categoryId,
+      categoryName: categoryInfo.categoryName
     };
 
     const result = await executeTransactionSaga(transactionData);
@@ -168,13 +229,100 @@ async function interbankTransfer(req, res) {
 async function getTransactionById(req, res) {
   try {
     const { id } = req.params;
-    const transaction = Transaction.findById(id);
-
+    
+    // Try to find by transactionId first, then by MongoDB _id
+    let transaction = await Transaction.findOne({ transactionId: id });
+    
+    // If not found by transactionId, try MongoDB _id
+    if (!transaction && id.match(/^[0-9a-fA-F]{24}$/)) {
+      transaction = await Transaction.findById(id);
+    }
+    
+    // If still not found, try as-is (might be partial match)
     if (!transaction) {
-      return res.status(404).json({ success: false, error: 'Transaction not found' });
+      transaction = await Transaction.findOne({ 
+        $or: [
+          { transactionId: id },
+          { transactionId: { $regex: id, $options: 'i' } }
+        ]
+      });
     }
 
-    res.json({ success: true, transaction: typeof transaction.toJSON === 'function' ? transaction.toJSON() : transaction });
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Transaction not found',
+        hint: 'Make sure you are using the correct transactionId (e.g., TXN_XXXXXXXX)'
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      transaction: typeof transaction.toJSON === 'function' ? transaction.toJSON() : transaction 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+async function updateTransaction(req, res) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Find transaction
+    let transaction = await Transaction.findOne({ transactionId: id });
+    
+    if (!transaction && id.match(/^[0-9a-fA-F]{24}$/)) {
+      transaction = await Transaction.findById(id);
+    }
+    
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Transaction not found',
+        hint: 'Use GET /transactions to list all transactions'
+      });
+    }
+
+    // Prevent updating immutable fields
+    delete updates.transactionId;
+    delete updates.type;
+    delete updates.fromAccount;
+    delete updates.toAccount;
+    delete updates.amount;
+    delete updates.createdAt;
+
+    // Only allow updating certain fields
+    const allowedFields = ['description', 'currency', 'status'];
+    const filteredUpdates = {};
+    
+    Object.keys(updates).forEach(key => {
+      if (allowedFields.includes(key)) {
+        filteredUpdates[key] = updates[key];
+      }
+    });
+
+    // Validate status if being updated
+    if (filteredUpdates.status) {
+      const validStatuses = ['pending', 'completed', 'failed', 'cancelled', 'reversed'];
+      if (!validStatuses.includes(filteredUpdates.status)) {
+        return res.status(400).json({
+          success: false,
+          error: `Status must be one of: ${validStatuses.join(', ')}`
+        });
+      }
+    }
+
+    // Update transaction
+    Object.assign(transaction, filteredUpdates);
+    await transaction.save();
+
+    res.json({
+      success: true,
+      message: 'Transaction updated successfully',
+      transaction: typeof transaction.toJSON === 'function' ? transaction.toJSON() : transaction
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -183,10 +331,37 @@ async function getTransactionById(req, res) {
 async function deleteTransaction(req, res) {
   try {
     const { id } = req.params;
-    const deleted = Transaction.deleteById(id);
+    
+    // Try to find the transaction first to confirm it exists
+    let transaction = await Transaction.findOne({ transactionId: id });
+    
+    // If not found by transactionId, try MongoDB _id
+    if (!transaction && id.match(/^[0-9a-fA-F]{24}$/)) {
+      transaction = await Transaction.findById(id);
+    }
+    
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Transaction not found',
+        hint: 'Make sure you are using the correct transactionId (e.g., TXN_XXXXXXXX)'
+      });
+    }
+    
+    // Delete using the found transaction's _id or transactionId
+    const result = await Transaction.deleteOne({ 
+      $or: [
+        { transactionId: id },
+        { _id: transaction._id }
+      ]
+    });
 
-    if (deleted) {
-      res.json({ success: true, message: 'Transaction deleted successfully' });
+    if (result.deletedCount > 0) {
+      res.json({ 
+        success: true, 
+        message: 'Transaction deleted successfully',
+        deletedTransaction: transaction.transactionId
+      });
     } else {
       res.status(404).json({ success: false, error: 'Transaction not found' });
     }
@@ -195,16 +370,63 @@ async function deleteTransaction(req, res) {
   }
 }
 
+async function getAllTransactions(req, res) {
+  try {
+    const { categoryId } = req.query;
+    const filter = {};
+
+    if (categoryId && typeof categoryId === 'string' && categoryId.trim() !== '') {
+      filter.categoryId = categoryId.trim();
+    }
+
+    const transactions = await Transaction.find(filter).lean().exec();
+    const transactionsArray = Array.isArray(transactions) ? transactions : [];
+
+    res.json({
+      success: true,
+      count: transactionsArray.length,
+      transactions: transactionsArray.map(t => ({
+        transactionId: t.transactionId,
+        type: t.type,
+        amount: t.amount,
+        status: t.status,
+        fromAccount: t.fromAccount,
+        toAccount: t.toAccount,
+        timestamp: t.timestamp,
+        categoryId: t.categoryId || null,
+        categoryName: t.categoryName || null
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 async function getTransactionsByAccount(req, res) {
   try {
     const { accountId } = req.params;
-    const transactions = Transaction.findByAccountId(accountId);
+    const transactions = await Transaction.findByAccountId(accountId);
+
+    // Ensure transactions is an array
+    const transactionsArray = Array.isArray(transactions) ? transactions : [];
+    
+    if (!Array.isArray(transactionsArray)) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Invalid transactions data format' 
+      });
+    }
 
     res.json({
       success: true,
       accountId,
-      count: transactions.length,
-      transactions: transactions.map(t => typeof t.toJSON === 'function' ? t.toJSON() : t)
+      count: transactionsArray.length,
+      transactions: transactionsArray.map(t => {
+        if (typeof t.toJSON === 'function') {
+          return t.toJSON();
+        }
+        return t;
+      })
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -216,14 +438,14 @@ async function getTransactionsByAccount(req, res) {
 async function getLimits(req, res) {
   try {
     const { accountId } = req.params;
-    const account = getAccount(accountId);
+    const account = await getAccount(accountId);
 
     if (!account) {
       return res.status(404).json({ success: false, error: 'Account not found' });
     }
 
-    const dailyWithdrawal = getDailyTransactionAmount(accountId, 'withdrawal');
-    const dailyTransfer = getDailyTransactionAmount(accountId, 'transfer');
+    const dailyWithdrawal = await getDailyTransactionAmount(accountId, 'withdrawal');
+    const dailyTransfer = await getDailyTransactionAmount(accountId, 'transfer');
 
     res.json({
       success: true,
@@ -253,34 +475,52 @@ async function updateLimits(req, res) {
     const { accountId } = req.params;
     const { dailyWithdrawal, dailyTransfer, singleTransaction } = req.body;
 
-    // In a real system, limits might be stored per account in the DB.
-    // For this demo, we will update the global limits in memory or per account if we had that structure.
-    // Let's simulate updating custom limits for this account by storing it in a new 'accountLimits' map in DataStore.
-    // Since DataStore doesn't have that yet, we'll just return a success message with the *new* values echoed back
-    // to confirm the PUT worked.
+    // Get account from MongoDB
+    const Account = require('../models/account');
+    const account = await Account.findOne({ accountId });
 
-    // To make it "real", let's assume we are updating the account's custom limits.
-    const account = getAccount(accountId);
     if (!account) {
-      return res.status(404).json({ success: false, error: 'Account not found' });
+      return res.status(404).json({ 
+        success: false, 
+        error: `Account ${accountId} not found`,
+        hint: 'Make sure the account exists. Use ACC_123, ACC_456, or EXT_999 for testing.'
+      });
     }
 
-    // Update account object with new limits (simulated persistence)
-    account.customLimits = {
-      dailyWithdrawal: dailyWithdrawal || TRANSACTION_LIMITS.DAILY_WITHDRAWAL,
-      dailyTransfer: dailyTransfer || TRANSACTION_LIMITS.DAILY_TRANSFER,
-      singleTransaction: singleTransaction || TRANSACTION_LIMITS.SINGLE_TRANSACTION
-    };
+    // Update account's custom limits in MongoDB
+    if (dailyWithdrawal !== undefined) {
+      if (!account.customLimits) {
+        account.customLimits = {};
+      }
+      account.customLimits.dailyWithdrawal = dailyWithdrawal;
+    }
+    
+    if (dailyTransfer !== undefined) {
+      if (!account.customLimits) {
+        account.customLimits = {};
+      }
+      account.customLimits.dailyTransfer = dailyTransfer;
+    }
+    
+    if (singleTransaction !== undefined) {
+      if (!account.customLimits) {
+        account.customLimits = {};
+      }
+      account.customLimits.singleTransaction = singleTransaction;
+    }
 
-    // Save the account update
-    const dataStore = require('../utils/dataStore');
-    dataStore.saveAccount(account);
+    // Save the account update to MongoDB
+    await account.save();
 
     res.json({
       success: true,
       message: 'Account limits updated successfully',
       accountId,
-      limits: account.customLimits
+      limits: {
+        dailyWithdrawal: account.customLimits?.dailyWithdrawal || TRANSACTION_LIMITS.DAILY_WITHDRAWAL,
+        dailyTransfer: account.customLimits?.dailyTransfer || TRANSACTION_LIMITS.DAILY_TRANSFER,
+        singleTransaction: account.customLimits?.singleTransaction || TRANSACTION_LIMITS.SINGLE_TRANSACTION
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -290,7 +530,7 @@ async function updateLimits(req, res) {
 async function fraudCheckEndpoint(req, res) {
   try {
     const transactionData = req.body;
-    const fraudResult = detectFraud(transactionData);
+    const fraudResult = await detectFraud(transactionData);
 
     res.json({
       success: true,
@@ -308,6 +548,16 @@ async function fraudCheckEndpoint(req, res) {
 async function reverseTransactionEndpoint(req, res) {
   try {
     const { id } = req.params;
+    
+    // Validate that id is provided
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Transaction ID is required',
+        hint: 'Use the transactionId from the transaction response (e.g., TXN_XXXXXXXX)'
+      });
+    }
+    
     const result = await reverseTransaction(id);
 
     if (result.success) {
@@ -318,26 +568,57 @@ async function reverseTransactionEndpoint(req, res) {
         reversalTransaction: result.reversalTransaction
       });
     } else {
+      // Check if it's a "not found" error
+      if (result.error && result.error.includes('not found')) {
+        return res.status(404).json({
+          success: false,
+          error: result.error,
+          hint: 'List all transactions with GET /transactions to see available transactionIds'
+        });
+      }
+      
+      // Check if it's a validation error (status not completed, already reversed, etc.)
+      if (result.error && (result.error.includes('Only completed') || result.error.includes('already reversed'))) {
+        return res.status(400).json({
+          success: false,
+          error: result.error
+        });
+      }
+      
+      // Other errors
       res.status(400).json({
         success: false,
         error: result.error
       });
     }
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    // Handle thrown errors
+    if (error.message && error.message.includes('not found')) {
+      return res.status(404).json({
+        success: false,
+        error: error.message,
+        hint: 'List all transactions with GET /transactions to see available transactionIds'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 }
 
 async function getSuspiciousTransactionsEndpoint(req, res) {
   try {
     const { accountId } = req.params;
-    const suspicious = getSuspiciousTransactions(accountId);
+    const suspicious = await getSuspiciousTransactions(accountId);
+    const suspiciousArray = Array.isArray(suspicious) ? suspicious : [];
 
     res.json({
       success: true,
       accountId,
-      count: suspicious.length,
-      transactions: suspicious.map(t => typeof t.toJSON === 'function' ? t.toJSON() : t)
+      count: suspiciousArray.length,
+      transactions: suspiciousArray.map(t => typeof t.toJSON === 'function' ? t.toJSON() : t)
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -392,9 +673,22 @@ async function calculateFeesEndpoint(req, res) {
 async function getCommissions(req, res) {
   try {
     const { period } = req.params; // e.g., '2024-01', 'daily', 'monthly'
-    const transactions = Transaction.getAll();
+    // Get all transactions from database
+    const transactions = await Transaction.find({}).lean();
 
-    let filteredTransactions = transactions.filter(t => t.status === 'completed' && t.commission > 0);
+    // Ensure transactions is an array
+    const transactionsArray = Array.isArray(transactions) ? transactions : [];
+    
+    if (!Array.isArray(transactionsArray)) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Invalid transactions data format' 
+      });
+    }
+    
+    let filteredTransactions = transactionsArray.filter(t => {
+      return t && t.status === 'completed' && (t.commission || 0) > 0;
+    });
 
     // Filter by period if provided
     if (period && period !== 'all') {
@@ -436,7 +730,7 @@ async function getCommissions(req, res) {
 async function feeWaiver(req, res) {
   try {
     const { accountId } = req.params;
-    const account = getAccount(accountId);
+    const account = await getAccount(accountId);
 
     if (!account) {
       return res.status(404).json({ success: false, error: 'Account not found' });
@@ -456,18 +750,43 @@ async function feeWaiver(req, res) {
 
 async function getCurrencyRates(req, res) {
   try {
-    // Simulated currency rates
-    res.json({
-      success: true,
-      baseCurrency: 'TND',
-      rates: {
-        USD: 3.1,
-        EUR: 3.4,
-        GBP: 3.9,
-        TND: 1.0
-      },
-      lastUpdated: new Date().toISOString()
-    });
+    const { baseCurrency = 'TND' } = req.query;
+    const { fetchRealTimeRates } = require('../utils/currencyExchange');
+    
+    const rates = await fetchRealTimeRates(baseCurrency);
+    
+    res.json(rates);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+async function convertCurrency(req, res) {
+  try {
+    const { amount, fromCurrency, toCurrency } = req.body;
+    
+    if (!amount || !fromCurrency || !toCurrency) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: amount, fromCurrency, toCurrency'
+      });
+    }
+
+    if (typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be a positive number'
+      });
+    }
+
+    const { convertCurrency: convert } = require('../utils/currencyExchange');
+    const result = await convert(amount, fromCurrency, toCurrency);
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -481,6 +800,7 @@ module.exports = {
   interbankTransfer,
   getTransactionById,
   deleteTransaction,
+  getAllTransactions,
   getTransactionsByAccount,
   // Métier 2
   getLimits,
@@ -492,6 +812,8 @@ module.exports = {
   calculateFeesEndpoint,
   getCommissions,
   feeWaiver,
-  getCurrencyRates
+  getCurrencyRates,
+  convertCurrency,
+  updateTransaction
 };
 

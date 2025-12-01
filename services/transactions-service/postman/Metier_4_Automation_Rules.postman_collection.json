@@ -1,0 +1,444 @@
+{
+    "info": {
+        "_postman_id": "metier-4-automation-rules-v2",
+        "name": "Transaction Service - Métier 4: Automation Rules (Fixed)",
+        "description": "Updated Automation Rules endpoints with fixes for route ordering and validation.\n\n**Changes:**\n- Removed `actionType` from request bodies (now optional)\n- Verified URL structures\n- Updated examples\n\n**Developer**: Chaker Allah Dimassi\n**Team**: TechWin\n**Version**: 1.1.0",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "1. Create Automation Rule",
+            "item": [
+                {
+                    "name": "Create Auto-Save 10% Rule",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"accountId\": \"ACC_123\",\n  \"name\": \"Auto-Save 10%\",\n  \"description\": \"Automatically save 10% of every deposit\",\n  \"type\": \"save_percentage\",\n  \"trigger\": \"on_deposit\",\n  \"action\": {\n    \"targetAccount\": \"ACC_456\",\n    \"percentage\": 10,\n    \"description\": \"Automatic savings\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules"
+                            ]
+                        },
+                        "description": "Creates a simple auto-save rule. Note: `actionType` is removed as it defaults to 'save'."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Round-Up Savings Rule",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"accountId\": \"ACC_123\",\n  \"name\": \"Round-Up Savings\",\n  \"description\": \"Round up withdrawals to nearest 10 TND\",\n  \"type\": \"round_up\",\n  \"trigger\": \"on_withdrawal\",\n  \"action\": {\n    \"targetAccount\": \"ACC_456\",\n    \"roundUpTo\": 10,\n    \"description\": \"Round-up savings\"\n  },\n  \"limits\": {\n    \"maxPerTransaction\": 10,\n    \"maxPerDay\": 50\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules"
+                            ]
+                        },
+                        "description": "Creates a round-up rule."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Salary Day Transfer Rule",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"accountId\": \"ACC_123\",\n  \"name\": \"Salary Day Savings\",\n  \"description\": \"Save 500 TND when salary is deposited\",\n  \"type\": \"fixed_transfer\",\n  \"trigger\": \"on_salary\",\n  \"conditions\": {\n    \"minAmount\": 2000,\n    \"descriptionContains\": \"salary\"\n  },\n  \"action\": {\n    \"targetAccount\": \"ACC_456\",\n    \"fixedAmount\": 500,\n    \"description\": \"Monthly salary savings\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules"
+                            ]
+                        },
+                        "description": "Creates a rule triggered by salary deposits."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Endpoints for creating automation rules."
+        },
+        {
+            "name": "2. Get Automation Rules",
+            "item": [
+                {
+                    "name": "Get All Rules for Account",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/ACC_123",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "ACC_123"
+                            ]
+                        },
+                        "description": "Retrieves all automation rules for account ACC_123."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Specific Rule by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/rule/{{ruleId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "rule",
+                                "{{ruleId}}"
+                            ]
+                        },
+                        "description": "Retrieves details of a specific automation rule. Replace {{ruleId}} with actual rule ID."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Endpoints for retrieving automation rules."
+        },
+        {
+            "name": "3. Update Automation Rule",
+            "item": [
+                {
+                    "name": "Update Rule Percentage",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"action\": {\n    \"targetAccount\": \"ACC_456\",\n    \"percentage\": 15,\n    \"description\": \"Updated to 15% savings\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/{{ruleId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "{{ruleId}}"
+                            ]
+                        },
+                        "description": "Updates an automation rule's action."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Endpoints for updating automation rules."
+        },
+        {
+            "name": "4. Toggle & Delete Rules",
+            "item": [
+                {
+                    "name": "Toggle Rule (Enable/Disable)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/{{ruleId}}/toggle",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "{{ruleId}}",
+                                "toggle"
+                            ]
+                        },
+                        "description": "Toggles the active status of an automation rule."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Automation Rule",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/{{ruleId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "{{ruleId}}"
+                            ]
+                        },
+                        "description": "Permanently deletes an automation rule."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Endpoints for managing rule lifecycle."
+        },
+        {
+            "name": "5. Statistics & History",
+            "item": [
+                {
+                    "name": "Get Rule Statistics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/{{ruleId}}/statistics",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "{{ruleId}}",
+                                "statistics"
+                            ]
+                        },
+                        "description": "Retrieves execution statistics for an automation rule."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Rule Execution History",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/{{ruleId}}/history?limit=50",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "{{ruleId}}",
+                                "history"
+                            ],
+                            "query": [
+                                {
+                                    "key": "limit",
+                                    "value": "50"
+                                }
+                            ]
+                        },
+                        "description": "Retrieves the execution history."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Endpoints for viewing statistics and history."
+        },
+        {
+            "name": "6. Test Automation Flow",
+            "item": [
+                {
+                    "name": "Step 1: Create Auto-Save Rule",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Rule created successfully\", function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.success).to.be.true;",
+                                    "    pm.expect(jsonData.rule).to.have.property('ruleId');",
+                                    "    pm.environment.set(\"ruleId\", jsonData.rule.ruleId);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"accountId\": \"ACC_123\",\n  \"name\": \"Test Auto-Save 10%\",\n  \"type\": \"save_percentage\",\n  \"trigger\": \"on_deposit\",\n  \"action\": {\n    \"targetAccount\": \"ACC_456\",\n    \"percentage\": 10\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules"
+                            ]
+                        },
+                        "description": "Step 1: Create rule."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Step 2: Make Deposit (Trigger Rule)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Deposit successful\", function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});",
+                                    "setTimeout(function(){}, 2000);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"toAccount\": \"ACC_123\",\n  \"amount\": 1000,\n  \"description\": \"Test trigger\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/deposit",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "deposit"
+                            ]
+                        },
+                        "description": "Step 2: Trigger rule."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Step 3: Check Statistics",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Statistics retrieved\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.statistics.totalExecutions).to.be.above(0);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/{{ruleId}}/statistics",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "{{ruleId}}",
+                                "statistics"
+                            ]
+                        },
+                        "description": "Step 3: Verify execution."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Step 4: Delete Test Rule",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/transactions/auto-rules/{{ruleId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "transactions",
+                                "auto-rules",
+                                "{{ruleId}}"
+                            ]
+                        },
+                        "description": "Step 4: Cleanup."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Automated test flow."
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3001",
+            "type": "string"
+        },
+        {
+            "key": "ruleId",
+            "value": "RULE_XXXXXX",
+            "type": "string"
+        }
+    ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "transaction-service",
+  "version": "1.0.0",
+  "description": "Banking Transaction Microservices",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:gateway\" \"npm run dev:transactions\" \"npm run dev:category\"",
+    "dev:gateway": "cd gateway && npm run dev",
+    "dev:transactions": "cd services/transactions-service && npm run dev",
+    "dev:category": "cd services/category-service && npm run dev",
+    "start": "concurrently \"npm run start:gateway\" \"npm run start:transactions\" \"npm run start:category\"",
+    "start:gateway": "cd gateway && npm start",
+    "start:transactions": "cd services/transactions-service && npm start",
+    "start:category": "cd services/category-service && npm start"
+  },
+  "keywords": [
+    "banking",
+    "transactions",
+    "microservices"
+  ],
+  "author": "Chaker Allah Dimassi - TechWin Team",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+

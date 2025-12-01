@@ -3,16 +3,55 @@ const cors = require('cors');
 require('dotenv').config();
 
 const transactionRoutes = require('./routes/transactions');
+const budgetRoutes = require('./routes/budgets');
 
 const mongoose = require('mongoose');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/transaction-service';
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(async () => {
+    console.log('✅ Connected to MongoDB');
+    // Seed accounts if database is empty
+    const Account = require('./models/account');
+    const accountCount = await Account.countDocuments();
+    if (accountCount === 0) {
+      console.log('🌱 Seeding accounts...');
+      const initialAccounts = [
+        {
+          accountId: "ACC_123",
+          balance: 5500.00,
+          currency: "TND",
+          status: "active",
+          owner: "User1",
+          customLimits: {
+            dailyWithdrawal: 8000,
+            dailyTransfer: 15000,
+            singleTransaction: 2000
+          }
+        },
+        {
+          accountId: "ACC_456",
+          balance: 3000.00,
+          currency: "TND",
+          status: "active",
+          owner: "User2"
+        },
+        {
+          accountId: "EXT_999",
+          balance: 1000000.00,
+          currency: "TND",
+          status: "active",
+          owner: "External Bank"
+        }
+      ];
+      await Account.insertMany(initialAccounts);
+      console.log('✅ Accounts seeded successfully');
+    }
+  })
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Middleware
@@ -37,6 +76,7 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/transactions', transactionRoutes);
+app.use('/budgets', budgetRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -68,7 +108,14 @@ app.get('/', (req, res) => {
           'POST /transactions/fees/calculate': 'Calculate transaction fees',
           'GET /transactions/commissions/:period': 'Get commissions for a period',
           'POST /transactions/fee-waiver/:accountId': 'Apply fee waiver to an account',
-          'GET /transactions/currency-rates': 'Get currency exchange rates'
+          'GET /transactions/currency-rates': 'Get real-time currency exchange rates (from external API)',
+          'POST /transactions/currency/convert': 'Convert amount between currencies'
+        },
+        'Métier 4 - Transaction Reports & Analytics': {
+          'GET /transactions/reports/summary': 'Get overall transaction summary',
+          'GET /transactions/reports/account/:accountId': 'Get account-specific statistics',
+          'GET /transactions/reports/monthly': 'Get monthly transaction statistics',
+          'GET /transactions/reports/trends': 'Get transaction trends over time'
         }
       }
     }

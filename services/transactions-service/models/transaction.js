@@ -51,6 +51,14 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  categoryId: {
+    type: String,
+    default: null
+  },
+  categoryName: {
+    type: String,
+    default: null
+  },
   reference: {
     type: String,
     default: null
@@ -67,10 +75,13 @@ const transactionSchema = new mongoose.Schema({
 });
 
 // Add static methods to match previous interface where possible
-transactionSchema.statics.findByAccountId = function (accountId) {
-  return this.find({
+transactionSchema.statics.findByAccountId = async function (accountId) {
+  const results = await this.find({
     $or: [{ fromAccount: accountId }, { toAccount: accountId }]
-  });
+  }).lean().exec();
+  
+  // Ensure we return an array
+  return Array.isArray(results) ? results : [];
 };
 
 transactionSchema.statics.deleteById = function (transactionId) {

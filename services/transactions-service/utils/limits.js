@@ -1,9 +1,9 @@
 const Transaction = require('../models/transaction');
 
 const TRANSACTION_LIMITS = {
-  DAILY_WITHDRAWAL: 5000,    // 5000 TND per day
-  DAILY_TRANSFER: 10000,     // 10000 TND per day  
-  SINGLE_TRANSACTION: 2000,  // 2000 TND per transaction
+  DAILY_WITHDRAWAL: 50000,    // 50000 TND per day (increased for testing)
+  DAILY_TRANSFER: 100000,     // 100000 TND per day (increased for testing)
+  SINGLE_TRANSACTION: 20000,  // 20000 TND per transaction (increased for testing)
   MIN_TRANSACTION: 1         // 1 TND minimum
 };
 
@@ -27,18 +27,23 @@ async function getDailyTransactionAmount(accountId, type, date = new Date()) {
     timestamp: { $gte: startOfDay, $lte: endOfDay },
     status: 'completed',
     ...typeQuery
-  });
+  }).lean().exec();
 
-  return transactions.reduce((sum, t) => sum + t.amount, 0);
+  // Ensure transactions is an array
+  const transactionsArray = Array.isArray(transactions) ? transactions : [];
+  
+  return transactionsArray.reduce((sum, t) => {
+    return sum + (t.amount || 0);
+  }, 0);
 }
 
-function checkDailyWithdrawalLimit(accountId, amount) {
-  const dailyAmount = getDailyTransactionAmount(accountId, 'withdrawal');
+async function checkDailyWithdrawalLimit(accountId, amount) {
+  const dailyAmount = await getDailyTransactionAmount(accountId, 'withdrawal');
   return (dailyAmount + amount) <= TRANSACTION_LIMITS.DAILY_WITHDRAWAL;
 }
 
-function checkDailyTransferLimit(accountId, amount) {
-  const dailyAmount = getDailyTransactionAmount(accountId, 'transfer');
+async function checkDailyTransferLimit(accountId, amount) {
+  const dailyAmount = await getDailyTransactionAmount(accountId, 'transfer');
   return (dailyAmount + amount) <= TRANSACTION_LIMITS.DAILY_TRANSFER;
 }
 

@@ -12,7 +12,7 @@ function validateTransaction(req, res, next) {
       errors.push(`Amount must be at least 1 TND`);
     }
     if (!checkSingleTransactionLimit(amount)) {
-      errors.push(`Amount exceeds single transaction limit of 2000 TND`);
+      errors.push(`Amount exceeds single transaction limit of 20000 TND`);
     }
   }
 

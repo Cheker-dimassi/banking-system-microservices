@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const transactionController = require('../controllers/transactionController');
+const reportsController = require('../controllers/reportsController');
 const { validateTransaction, validateAccountId, validateTransactionId } = require('../middleware/validation');
 const { validateAccountStatus, checkLimits, fraudCheck } = require('../middleware/security');
 const { calculateFees } = require('../middleware/fees');
@@ -46,16 +47,9 @@ router.post('/interbank-transfer',
   transactionController.interbankTransfer
 );
 
-// GET /transactions/:id
-router.get('/:id',
-  validateTransactionId,
-  transactionController.getTransactionById
-);
-
-// DELETE /transactions/:id
-router.delete('/:id',
-  validateTransactionId,
-  transactionController.deleteTransaction
+// GET /transactions (list all - must come before /:id)
+router.get('/',
+  transactionController.getAllTransactions
 );
 
 // GET /transactions/account/:accountId
@@ -65,6 +59,12 @@ router.get('/account/:accountId',
 );
 
 // ==================== MÉTIER 2: Security & Limits Management ====================
+
+// POST /transactions/fraud-check (must come before /:id routes)
+router.post('/fraud-check',
+  validateTransaction,
+  transactionController.fraudCheckEndpoint
+);
 
 // GET /transactions/limits/:accountId
 router.get('/limits/:accountId',
@@ -78,10 +78,10 @@ router.put('/limits/:accountId',
   transactionController.updateLimits
 );
 
-// POST /transactions/fraud-check
-router.post('/fraud-check',
-  validateTransaction,
-  transactionController.fraudCheckEndpoint
+// PUT /transactions/:id (update transaction) - keep after specific PUT routes
+router.put('/:id',
+  validateTransactionId,
+  transactionController.updateTransaction
 );
 
 // POST /transactions/:id/reverse
@@ -118,6 +118,46 @@ router.post('/fee-waiver/:accountId',
 // GET /transactions/currency-rates
 router.get('/currency-rates',
   transactionController.getCurrencyRates
+);
+
+// POST /transactions/currency/convert
+router.post('/currency/convert',
+  transactionController.convertCurrency
+);
+
+// ==================== MÉTIER 4: Transaction Reports & Analytics ====================
+
+// GET /transactions/reports/summary
+router.get('/reports/summary',
+  reportsController.getSummary
+);
+
+// GET /transactions/reports/account/:accountId
+router.get('/reports/account/:accountId',
+  validateAccountId,
+  reportsController.getAccountStatistics
+);
+
+// GET /transactions/reports/monthly
+router.get('/reports/monthly',
+  reportsController.getMonthlyStatistics
+);
+
+// GET /transactions/reports/trends
+router.get('/reports/trends',
+  reportsController.getTrends
+);
+
+// DELETE /transactions/:id
+router.delete('/:id',
+  validateTransactionId,
+  transactionController.deleteTransaction
+);
+
+// GET /transactions/:id (generic catch-all, must come last among GET routes)
+router.get('/:id',
+  validateTransactionId,
+  transactionController.getTransactionById
 );
 
 module.exports = router;
