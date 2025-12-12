@@ -141,12 +141,21 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Transaction Service running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log(`📚 API Documentation: http://localhost:${PORT}/`);
   console.log(`\nService: Transaction Management Microservice`);
   console.log(`Developer: Chaker Allah Dimassi - TechWin Team\n`);
+
+  // Register with service discovery
+  try {
+    const { ServiceRegistration } = require('../../shared/serviceRegistration');
+    const registration = new ServiceRegistration('transactions-service', PORT);
+    await registration.register();
+  } catch (error) {
+    console.warn('⚠️  Service discovery not available, continuing without it...');
+  }
 });
 
 module.exports = app;

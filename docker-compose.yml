@@ -1,51 +1,149 @@
-version: '3.8'
+# Docker Compose Configuration for Banking Microservices
 
 services:
+  # MongoDB Database
   mongodb:
-    image: mongo:7.0
-    container_name: servicebank-mongodb
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-      MONGO_INITDB_DATABASE: servicebank
+    image: mongo:7
+    container_name: banking-mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: banking-system
     volumes:
       - mongodb_data:/data/db
     networks:
-      - servicebank-network
+      - banking-network
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
       timeout: 5s
       retries: 5
 
-  app:
+  # Service Discovery
+  service-discovery:
     build:
-      context: .
+      context: ./service-discovery
       dockerfile: Dockerfile
-    container_name: servicebank-api
-    environment:
-      PORT: 3000
-      MONGODB_URI: mongodb://admin:password@mongodb:27017/servicebank?authSource=admin
-      NODE_ENV: development
-      CORS_ORIGIN: http://localhost:3000
-      LOG_LEVEL: debug
+    container_name: service-discovery
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8500:8500"
+    environment:
+      - REGISTRY_PORT=8500
+      - NODE_ENV=production
+    networks:
+      - banking-network
+    healthcheck:
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:8500/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Transactions Service
+  transactions-service:
+    build:
+      context: ./services/transactions-service
+      dockerfile: Dockerfile
+    container_name: transactions-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/transaction-service
+      - SERVICE_REGISTRY_URL=http://service-discovery:8500
+      - ACCOUNTS_SERVICE_URL=http://accounts-service:3004
+      - NODE_ENV=production
     depends_on:
       mongodb:
         condition: service_healthy
+      service-discovery:
+        condition: service_healthy
     networks:
-      - servicebank-network
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: npm run dev
+      - banking-network
+
+  # Categories Service
+  categories-service:
+    build:
+      context: ./services/category-service
+      dockerfile: Dockerfile
+    container_name: categories-service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - MONGODB_URI=mongodb://mongodb:27017/category-service
+      - SERVICE_REGISTRY_URL=http://service-discovery:8500
+      - NODE_ENV=production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      service-discovery:
+        condition: service_healthy
+    networks:
+      - banking-network
+
+  # Accounts Service
+  accounts-service:
+    build:
+      context: ./services/accounts-service
+      dockerfile: Dockerfile
+    container_name: accounts-service
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - MONGODB_URI=mongodb://mongodb:27017/accounts-service
+      - SERVICE_REGISTRY_URL=http://service-discovery:8500
+      - NODE_ENV=production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      service-discovery:
+        condition: service_healthy
+    networks:
+      - banking-network
+
+  # API Gateway
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GATEWAY_PORT=3000
+      - SERVICE_REGISTRY_URL=http://service-discovery:8500
+      - TRANSACTIONS_SERVICE_URL=http://transactions-service:3001
+      - CATEGORIES_SERVICE_URL=http://categories-service:3002
+      - ACCOUNTS_SERVICE_URL=http://accounts-service:3004
+      - NODE_ENV=production
+    depends_on:
+      service-discovery:
+        condition: service_healthy
+      transactions-service:
+        condition: service_started
+      categories-service:
+        condition: service_started
+      accounts-service:
+        condition: service_started
+    networks:
+      - banking-network
+    healthcheck:
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+networks:
+  banking-network:
+    driver: bridge
 
 volumes:
   mongodb_data:
-
-networks:
-  servicebank-network:
-    driver: bridge
+    driver: local

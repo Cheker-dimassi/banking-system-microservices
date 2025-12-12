@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "description": "Banking Transaction Microservices",
   "scripts": {
-    "dev": "concurrently \"npm run dev:gateway\" \"npm run dev:transactions\" \"npm run dev:category\" \"npm run dev:accounts\"",
+    "dev": "concurrently \"npm run dev:discovery\" \"npm run dev:gateway\" \"npm run dev:transactions\" \"npm run dev:category\" \"npm run dev:accounts\"",
+    "dev:discovery": "cd service-discovery && npm run dev",
     "dev:gateway": "cd gateway && npm run dev",
     "dev:transactions": "cd services/transactions-service && npm run dev",
     "dev:category": "cd services/category-service && npm run dev",
     "dev:accounts": "cd services/accounts-service && npm run dev",
-    "start": "concurrently \"npm run start:gateway\" \"npm run start:transactions\" \"npm run start:category\" \"npm run start:accounts\"",
+    "start": "concurrently \"npm run start:discovery\" \"npm run start:gateway\" \"npm run start:transactions\" \"npm run start:category\" \"npm run start:accounts\"",
+    "start:discovery": "cd service-discovery && npm start",
     "start:gateway": "cd gateway && npm start",
     "start:transactions": "cd services/transactions-service && npm start",
     "start:category": "cd services/category-service && npm start",
@@ -25,4 +27,3 @@
     "concurrently": "^8.2.2"
   }
 }
-

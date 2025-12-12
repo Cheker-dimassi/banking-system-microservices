@@ -8,7 +8,6 @@ const PORT = process.env.GATEWAY_PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -19,7 +18,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Service registry (simple in-memory registry)
+// Service URLs from environment (Docker container names)
 const services = {
   transactions: {
     url: process.env.TRANSACTIONS_SERVICE_URL || 'http://localhost:3001',
@@ -40,18 +39,14 @@ app.use('/api/transactions', createProxyMiddleware({
   target: services.transactions.url,
   changeOrigin: true,
   pathRewrite: {
-    '^/api/transactions': '' // Remove /api/transactions prefix
-  },
-  onError: (err, req, res) => {
-    console.error('Transactions service error:', err.message);
-    res.status(503).json({
-      success: false,
-      error: 'Transactions service unavailable',
-      message: 'The transactions service is currently unavailable. Please try again later.'
-    });
+    '^/api/transactions': '/transactions'
   },
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`[Gateway] ${req.method} ${req.url} -> ${services.transactions.url}${req.url}`);
+    console.log(`[Proxy] ${req.method} ${req.path} -> ${services.transactions.url}`);
+  },
+  onError: (err, req, res) => {
+    console.error('[Proxy Error] Transactions:', err.message);
+    res.status(500).json({ error: 'Proxy error', service: 'transactions' });
   }
 }));
 
@@ -60,84 +55,73 @@ app.use('/api/categories', createProxyMiddleware({
   target: services.categories.url,
   changeOrigin: true,
   pathRewrite: {
-    '^/api/categories': '' // Remove /api/categories prefix
-  },
-  onError: (err, req, res) => {
-    console.error('Categories service error:', err.message);
-    res.status(503).json({
-      success: false,
-      error: 'Categories service unavailable',
-      message: 'The categories service is currently unavailable. Please try again later.'
-    });
+    '^/api/categories': '/categories'
   },
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`[Gateway] ${req.method} ${req.url} -> ${services.categories.url}${req.url}`);
+    console.log(`[Proxy] ${req.method} ${req.path} -> ${services.categories.url}`);
+  },
+  onError: (err, req, res) => {
+    console.error('[Proxy Error] Categories:', err.message);
+    res.status(500).json({ error: 'Proxy error', service: 'categories' });
   }
 }));
 
-// Proxy middleware for Accounts Service
+// Proxy middleware for Accounts Service (Comptes)
 app.use('/api/comptes', createProxyMiddleware({
   target: services.accounts.url,
   changeOrigin: true,
   pathRewrite: {
-    '^/api/comptes': '/api/comptes' // Keep /api/comptes prefix
-  },
-  onError: (err, req, res) => {
-    console.error('Accounts service error:', err.message);
-    res.status(503).json({
-      success: false,
-      error: 'Accounts service unavailable',
-      message: 'The accounts service is currently unavailable. Please try again later.'
-    });
+    '^/api/comptes': '/api/comptes'
   },
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`[Gateway] ${req.method} ${req.url} -> ${services.accounts.url}${req.url}`);
+    console.log(`[Proxy] ${req.method} ${req.path} -> ${services.accounts.url}`);
+  },
+  onError: (err, req, res) => {
+    console.error('[Proxy Error] Accounts:', err.message);
+    res.status(500).json({ error: 'Proxy error', service: 'accounts' });
   }
 }));
 
+// Proxy middleware for Mouvements
 app.use('/api/mouvements', createProxyMiddleware({
   target: services.accounts.url,
   changeOrigin: true,
   pathRewrite: {
-    '^/api/mouvements': '/api/mouvements' // Keep /api/mouvements prefix
-  },
-  onError: (err, req, res) => {
-    console.error('Accounts service error:', err.message);
-    res.status(503).json({
-      success: false,
-      error: 'Accounts service unavailable',
-      message: 'The accounts service is currently unavailable. Please try again later.'
-    });
+    '^/api/mouvements': '/api/mouvements'
   },
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`[Gateway] ${req.method} ${req.url} -> ${services.accounts.url}${req.url}`);
+    console.log(`[Proxy] ${req.method} ${req.path} -> ${services.accounts.url}`);
+  },
+  onError: (err, req, res) => {
+    console.error('[Proxy Error] Mouvements:', err.message);
+    res.status(500).json({ error: 'Proxy error', service: 'mouvements' });
   }
 }));
 
-// API Documentation endpoint
+// Root info endpoint
 app.get('/', (req, res) => {
   res.json({
-    name: 'Banking System API Gateway',
+    service: 'API Gateway',
     version: '1.0.0',
-    description: 'Central entry point for all microservices',
+    status: 'running',
+    services: {
+      transactions: services.transactions.url,
+      categories: services.categories.url,
+      accounts: services.accounts.url
+    },
     endpoints: {
+      health: '/health',
       transactions: '/api/transactions',
       categories: '/api/categories',
       accounts: '/api/comptes',
-      movements: '/api/mouvements',
-      health: '/health'
-    },
-    services: Object.keys(services).map(key => ({
-      name: key,
-      url: services[key].url,
-      status: 'registered'
-    }))
+      mouvements: '/api/mouvements'
+    }
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 API Gateway running on port ${PORT}`);
+  console.log(`\n🚀 API Gateway running on port ${PORT}`);
   console.log(`📡 Proxying requests to:`);
   Object.keys(services).forEach(key => {
     console.log(`   - ${key}: ${services[key].url}`);
@@ -146,6 +130,5 @@ app.listen(PORT, () => {
   console.log(`📍 Transactions API: http://localhost:${PORT}/api/transactions`);
   console.log(`📍 Categories API: http://localhost:${PORT}/api/categories`);
   console.log(`📍 Accounts API: http://localhost:${PORT}/api/comptes`);
-  console.log(`📍 Movements API: http://localhost:${PORT}/api/mouvements`);
+  console.log(`📍 Movements API: http://localhost:${PORT}/api/mouvements\n`);
 });
-

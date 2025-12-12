@@ -106,8 +106,11 @@ export class MouvementController {
     const mouvement = await mouvementService.crediterCompte(
       id,
       montant,
-      description
+      `[ADMIN] ${description}` // Mark as admin operation
     );
+
+    // Admin audit logging
+    console.log(`[ADMIN CREDIT] User: ${req.body.adminUser || 'system'}, Amount: ${montant} TND, Account: ${id}`);
 
     // Get account info to send email notification
     try {
@@ -130,8 +133,13 @@ export class MouvementController {
 
     res.status(201).json({
       success: true,
-      message: 'Compte crédité avec succès',
+      message: 'Compte crédité avec succès (Admin operation)',
       data: mouvement,
+      audit: {
+        operationType: 'ADMIN_CREDIT',
+        performedBy: req.body.adminUser || 'system',
+        timestamp: new Date()
+      }
     });
   });
 
@@ -144,8 +152,11 @@ export class MouvementController {
     const mouvement = await mouvementService.debiterCompte(
       id,
       montant,
-      description
+      `[ADMIN] ${description}` // Mark as admin operation
     );
+
+    // Admin audit logging
+    console.log(`[ADMIN DEBIT] User: ${req.body.adminUser || 'system'}, Amount: ${montant} TND, Account: ${id}`);
 
     // Get account info to send email notification
     try {
@@ -168,8 +179,13 @@ export class MouvementController {
 
     res.status(201).json({
       success: true,
-      message: 'Compte débité avec succès',
+      message: 'Compte débité avec succès (Admin operation)',
       data: mouvement,
+      audit: {
+        operationType: 'ADMIN_DEBIT',
+        performedBy: req.body.adminUser || 'system',
+        timestamp: new Date()
+      }
     });
   });
 

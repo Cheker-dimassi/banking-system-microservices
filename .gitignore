@@ -39,3 +39,15 @@ coverage/
 tmp/
 temp/
 *.tmp
+
+# Docker (don't commit these!)
+*.pid
+*.seed
+*.pid.lock
+.dockerignore
+
+# Large files
+*.zip
+*.tar
+*.gz
+*.rar

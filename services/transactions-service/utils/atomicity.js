@@ -1,26 +1,5 @@
 const Transaction = require('../models/transaction');
-const Account = require('../models/account');
-
-async function getAccount(accountId) {
-  return await Account.findOne({ accountId });
-}
-
-async function updateAccountBalance(accountId, amount, operation = 'debit') {
-  const account = await getAccount(accountId);
-
-  if (!account) {
-    throw new Error(`Account ${accountId} not found`);
-  }
-
-  if (operation === 'debit') {
-    account.balance -= amount;
-  } else if (operation === 'credit') {
-    account.balance += amount;
-  }
-
-  await account.save();
-  return account;
-}
+const { getAccount, updateAccountBalance } = require('./accountService');
 
 async function executeTransactionSaga(transactionData) {
   const steps = [];

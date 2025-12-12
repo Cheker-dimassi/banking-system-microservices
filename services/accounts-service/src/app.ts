@@ -112,13 +112,22 @@ export const startServer = async (): Promise<void> => {
     const portToUse = await findFreePort(BASE_PORT, HOST);
 
     // Démarrage du serveur
-    const server = app.listen(portToUse, HOST, () => {
+    const server = app.listen(portToUse, HOST, async () => {
       serverStarted = true;
       console.log(`✓ Serveur démarré sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${portToUse}`);
       if (portToUse !== BASE_PORT) {
         console.log(`ℹ Le port ${BASE_PORT} était occupé. Utilisation du port ${portToUse}.`);
       }
       console.log(`✓ Mode: ${process.env.NODE_ENV || 'development'}`);
+
+      // Register with service discovery
+      try {
+        const { ServiceRegistration } = require('../../../shared/serviceRegistration');
+        const registration = new ServiceRegistration('accounts-service', portToUse);
+        await registration.register();
+      } catch (error) {
+        console.warn('⚠️  Service discovery not available, continuing without it...');
+      }
     });
 
     server.on('error', (err) => {

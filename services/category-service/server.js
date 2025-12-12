@@ -75,6 +75,15 @@ app.use((err, req, res, next) => {
     });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`🚀 Category Service running on port ${PORT}`);
+
+    // Register with service discovery
+    try {
+        const { ServiceRegistration } = require('../../shared/serviceRegistration');
+        const registration = new ServiceRegistration('categories-service', PORT);
+        await registration.register();
+    } catch (error) {
+        console.warn('⚠️  Service discovery not available, continuing without it...');
+    }
 });

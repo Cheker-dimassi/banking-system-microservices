@@ -1,0 +1,246 @@
+{
+    "info": {
+        "name": "Banking System - Quick Test",
+        "description": "Simple test collection for the merged banking microservices",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "1. Get All Accounts",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:3000/api/comptes",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "api",
+                        "comptes"
+                    ]
+                },
+                "description": "Retrieve all bank accounts from the database"
+            }
+        },
+        {
+            "name": "2. Create Deposit",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"toAccount\": \"ACC_123\",\n  \"amount\": 1000,\n  \"description\": \"Monthly salary\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:3000/api/transactions/deposit",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "api",
+                        "transactions",
+                        "deposit"
+                    ]
+                },
+                "description": "Add funds to an account"
+            }
+        },
+        {
+            "name": "3. Create Withdrawal",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"fromAccount\": \"ACC_123\",\n  \"amount\": 200,\n  \"description\": \"ATM withdrawal\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:3000/api/transactions/withdrawal",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "api",
+                        "transactions",
+                        "withdrawal"
+                    ]
+                },
+                "description": "Withdraw funds from an account"
+            }
+        },
+        {
+            "name": "4. Internal Transfer",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"fromAccount\": \"ACC_123\",\n  \"toAccount\": \"ACC_456\",\n  \"amount\": 500,\n  \"description\": \"Transfer to savings\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:3000/api/transactions/internal-transfer",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "api",
+                        "transactions",
+                        "internal-transfer"
+                    ]
+                },
+                "description": "Transfer between two accounts"
+            }
+        },
+        {
+            "name": "5. Get All Categories",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:3000/api/categories",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "api",
+                        "categories"
+                    ]
+                },
+                "description": "Retrieve all transaction categories"
+            }
+        },
+        {
+            "name": "6. Create Category",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"name\": \"Groceries\",\n  \"type\": \"expense\",\n  \"color\": \"#FF9800\",\n  \"icon\": \"shopping_cart\",\n  \"description\": \"Food and grocery purchases\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:3000/api/categories",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "api",
+                        "categories"
+                    ]
+                },
+                "description": "Create a new transaction category"
+            }
+        },
+        {
+            "name": "7. Get Transactions for Account",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:3001/transactions/account/ACC_123",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3001",
+                    "path": [
+                        "transactions",
+                        "account",
+                        "ACC_123"
+                    ]
+                },
+                "description": "Get all transactions for a specific account"
+            }
+        },
+        {
+            "name": "8. Gateway Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:3000/health",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "health"
+                    ]
+                },
+                "description": "Check if the API Gateway is running"
+            }
+        },
+        {
+            "name": "9. Transactions Service Health",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:3001/health",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3001",
+                    "path": [
+                        "health"
+                    ]
+                },
+                "description": "Check if the Transactions Service is running"
+            }
+        },
+        {
+            "name": "10. Accounts Service Health",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:3004/health",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3004",
+                    "path": [
+                        "health"
+                    ]
+                },
+                "description": "Check if the Accounts Service is running"
+            }
+        }
+    ]
+}

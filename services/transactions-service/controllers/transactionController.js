@@ -1,5 +1,6 @@
 const Transaction = require('../models/transaction');
-const { executeTransactionSaga, reverseTransaction, getAccount } = require('../utils/atomicity');
+const { executeTransactionSaga, reverseTransaction } = require('../utils/atomicity');
+const { getAccount } = require('../utils/accountService');
 const {
   getDailyTransactionAmount,
   TRANSACTION_LIMITS
