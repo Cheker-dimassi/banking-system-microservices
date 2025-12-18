@@ -55,6 +55,7 @@ services:
       - SERVICE_REGISTRY_URL=http://service-discovery:8500
       - ACCOUNTS_SERVICE_URL=http://accounts-service:3004
       - NODE_ENV=production
+      - CORS_ORIGIN=*
     depends_on:
       mongodb:
         condition: service_healthy
@@ -77,6 +78,7 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/category-service
       - SERVICE_REGISTRY_URL=http://service-discovery:8500
       - NODE_ENV=production
+      - CORS_ORIGIN=*
     depends_on:
       mongodb:
         condition: service_healthy
@@ -99,6 +101,15 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/accounts-service
       - SERVICE_REGISTRY_URL=http://service-discovery:8500
       - NODE_ENV=production
+      - CORS_ORIGIN=*
+      - EMAIL_PROVIDER=smtp
+      - EMAIL_FROM=aymensomai192@gmail.com
+      - EMAIL_FROM_NAME=Service Bank
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=465
+      - SMTP_SECURE=true
+      - SMTP_USER=aymensomai192@gmail.com
+      - SMTP_PASS=epgb wvec ioghxaql
     depends_on:
       mongodb:
         condition: service_healthy
@@ -123,6 +134,7 @@ services:
       - CATEGORIES_SERVICE_URL=http://categories-service:3002
       - ACCOUNTS_SERVICE_URL=http://accounts-service:3004
       - NODE_ENV=production
+      - CORS_ORIGIN=*
     depends_on:
       service-discovery:
         condition: service_healthy
