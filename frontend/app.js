@@ -179,9 +179,11 @@ function displayAccounts() {
             <div class="account-header">
                 <div>
                     <p class="account-type">${account.typeCompte || 'Checking'}</p>
-                    <button class="btn btn-small btn-outline" onclick="viewAccountDetails('${account._id}')" style="margin-top: 0.5rem;">
-                        View Details
-                    </button>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                         <button class="btn btn-small btn-primary" onclick="viewAccountHistory('${account.numeroCompte || account._id}')">History</button>
+                         <button class="btn btn-small btn-outline" onclick="editAccount('${account._id}')">Edit</button>
+                         <button class="btn btn-small btn-outline" style="color: #ef4444; border-color: #ef4444;" onclick="closeAccount('${account._id}')">Close</button>
+                    </div>
                 </div>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <rect x="1" y="4" width="22" height="16" rx="2" stroke-width="2"/>
@@ -192,6 +194,55 @@ function displayAccounts() {
             <div class="account-number">${formatAccountNumber(account.numeroCompte || 'N/A')}</div>
         </div>
     `).join('');
+}
+
+// View Account History
+async function viewAccountHistory(accountId) {
+    showTab('transactions');
+    const container = document.getElementById('allTransactionsList');
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        // Use the specific endpoint for account transactions
+        // Note: We might need to handle if accountId is _id or numeroCompte based on backend expectation.
+        // The backend route is /transactions/account/:accountId. 
+        // Assuming it accepts the MongoDB _id or the Account Number depending on implementation.
+        // Let's try the ID first.
+        const response = await fetch(`${API_BASE}/transactions/account/${accountId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            state.transactions = data.transactions || data.data || [];
+
+            // Render with a "Clear Filter" header
+            if (state.transactions.length === 0) {
+                container.innerHTML = `
+                    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;">Account History</h3>
+                        <button class="btn btn-outline" onclick="loadAllTransactions()">Show All Transactions</button>
+                    </div>
+                    <div class="empty-state">
+                        <h3>No transactions found for this account</h3>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;">Account History (${state.transactions.length})</h3>
+                        <button class="btn btn-outline" onclick="loadAllTransactions()">Show All Transactions</button>
+                    </div>
+                    ${state.transactions.map(tx => createTransactionHTML(tx)).join('')}
+                `;
+            }
+        } else {
+            showError('Failed to load account history');
+            loadAllTransactions();
+        }
+    } catch (error) {
+        console.error('Error fetching account history:', error);
+        showError('Error loading history');
+        loadAllTransactions();
+    }
 }
 
 // Display Recent Transactions
@@ -232,7 +283,11 @@ async function loadAllTransactions() {
         return;
     }
 
-    container.innerHTML = state.transactions.map(tx => createTransactionHTML(tx)).join('');
+    // Default header for All Transactions
+    container.innerHTML = `
+        <h3 style="margin-bottom: 20px;">All Transactions</h3>
+        ${state.transactions.map(tx => createTransactionHTML(tx)).join('')}
+    `;
 }
 
 // Create Transaction HTML
@@ -269,6 +324,10 @@ function createTransactionHTML(tx) {
             <div class="transaction-amount ${amountClass}">
                 ${amountPrefix}${formatCurrency(amount)}
             </div>
+             <div class="transaction-actions" style="margin-left: 1rem; display: flex; gap: 5px;">
+                <button class="btn btn-small btn-outline" title="Edit Description" onclick="editTransaction('${tx.transactionId || tx._id}')">✏️</button>
+                <button class="btn btn-small btn-outline" title="Reverse/Refund" onclick="reverseTransaction('${tx.transactionId || tx._id}')">↩️</button>
+            </div>
         </div>
     `;
 }
@@ -292,7 +351,7 @@ function displayCategories() {
     }
 
     container.innerHTML = state.categories.map(cat => `
-        <div class="category-card" onclick="selectCategory('${cat._id}')">
+        <div class="category-card" onclick="selectCategory('${cat.categoryId}')">
             <div class="category-icon-wrapper" style="background: ${cat.color || '#6366f1'}20; color: ${cat.color || '#6366f1'}">
                 <span>${cat.icon || '📁'}</span>
             </div>
@@ -582,8 +641,279 @@ function viewAccountDetails(id) {
 }
 
 function selectCategory(id) {
-    console.log('Selected category:', id);
-    // TODO: Show category details
+    const category = state.categories.find(c => c.categoryId === id);
+    if (!category) return;
+
+    const modal = `
+        <div class="modal-overlay" onclick="closeModal()">
+            <div class="modal glass-effect" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>Edit Category</h3>
+                    <button class="close-btn" onclick="closeModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label>Name</label>
+                        <input type="text" id="editCatName" value="${category.name}">
+                    </div>
+                    <div class="input-group">
+                        <label>Type</label>
+                         <select id="editCatType" disabled style="opacity: 0.7; cursor: not-allowed;">
+                            <option value="expense" ${category.type === 'expense' ? 'selected' : ''}>Expense</option>
+                            <option value="income" ${category.type === 'income' ? 'selected' : ''}>Income</option>
+                            <option value="transfer" ${category.type === 'transfer' ? 'selected' : ''}>Transfer</option>
+                        </select>
+                         <small style="color: var(--text-muted); margin-top: 0.2rem;">Type cannot be changed</small>
+                    </div>
+                    <div class="input-group">
+                        <label>Color</label>
+                        <input type="color" id="editCatColor" value="${category.color}">
+                    </div>
+                     <div class="input-group">
+                        <label>Icon</label>
+                        <input type="text" id="editCatIcon" value="${category.icon}" maxlength="2">
+                    </div>
+                </div>
+                <div class="modal-footer" style="justify-content: space-between;">
+                    <button class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;" onclick="deleteCategoryAPI('${id}')">Delete</button>
+                    <div style="display: flex; gap: 10px;">
+                         <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                         <button class="btn btn-primary" onclick="updateCategoryAPI('${id}')">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('modalContainer').innerHTML = modal;
+}
+
+async function deleteCategoryAPI(id) {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/categories/${id}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showSuccess('Category deleted');
+            closeModal();
+            loadCategories();
+        } else {
+            showError(data.error || data.message || 'Failed to delete');
+        }
+    } catch (err) {
+        showError('Error deleting: ' + err.message);
+    }
+}
+
+async function updateCategoryAPI(id) {
+    const name = document.getElementById('editCatName').value;
+    const color = document.getElementById('editCatColor').value;
+    const icon = document.getElementById('editCatIcon').value;
+
+    try {
+        const response = await fetch(`${API_BASE}/categories/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, color, icon })
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showSuccess('Category updated');
+            closeModal();
+            loadCategories();
+        } else {
+            showError(data.error || data.message || 'Failed to update');
+        }
+    } catch (err) {
+        showError('Error updating: ' + err.message);
+    }
+}
+
+
+// ==========================================
+// NEW: Account Management (Edit/Close)
+// ==========================================
+
+async function closeAccount(id) {
+    if (!confirm('Are you sure you want to close this account? This action cannot be undone.')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/comptes/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showSuccess('Account closed successfully');
+            loadAccounts();
+        } else {
+            const data = await response.json();
+            showError(data.message || data.error || 'Failed to close account');
+        }
+    } catch (error) {
+        showError('Error closing account: ' + error.message);
+    }
+}
+
+function editAccount(id) {
+    const account = state.accounts.find(a => a._id === id);
+    if (!account) return;
+
+    const modal = `
+        <div class="modal-overlay" onclick="closeModal()">
+            <div class="modal glass-effect" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>Edit Account</h3>
+                    <button class="close-btn" onclick="closeModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label>Account ID</label>
+                        <input type="text" value="${account.numeroCompte}" disabled style="opacity: 0.7;">
+                    </div>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="editAccEmail" value="${account.client?.email || account.email || ''}">
+                    </div>
+                     <div class="input-group">
+                        <label>Status</label>
+                        <select id="editAccStatus">
+                            <option value="ACTIF">Active</option>
+                            <option value="SUSPENDU">Suspended</option>
+                            <option value="CLOTURE">Closed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="updateAccount('${id}')">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('modalContainer').innerHTML = modal;
+}
+
+async function updateAccount(id) {
+    const email = document.getElementById('editAccEmail').value;
+    const status = document.getElementById('editAccStatus').value; // We might need to send this if backend supports it
+
+    try {
+        const response = await fetch(`${API_BASE}/comptes/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, statut: status })
+        });
+
+        const data = await response.json();
+        if (data.success || response.ok) {
+            showSuccess('Account updated');
+            closeModal();
+            loadAccounts();
+        } else {
+            showError(data.message || 'Failed to update account');
+        }
+    } catch (e) {
+        showError(e.message);
+    }
+}
+
+// ==========================================
+// NEW: Transaction Management (Review/Edit)
+// ==========================================
+
+async function reverseTransaction(id) {
+    if (!confirm('Refund this transaction? This will create a new counter-transaction.')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/transactions/${id}/reverse`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            showSuccess('Transaction refunded/reversed successfully');
+            loadDashboardData(); // Refresh all
+        } else {
+            showError(data.error || 'Failed to reverse transaction');
+        }
+    } catch (e) {
+        showError('Network error: ' + e.message);
+    }
+}
+
+function editTransaction(id) {
+    const tx = state.transactions.find(t => (t.transactionId === id || t._id === id));
+    if (!tx) return;
+
+    const modal = `
+        <div class="modal-overlay" onclick="closeModal()">
+            <div class="modal glass-effect" onclick="event.stopPropagation()">
+                 <div class="modal-header">
+                    <h3>Edit Transaction Details</h3>
+                    <button class="close-btn" onclick="closeModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Only the description can be edited for banking security.</p>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <input type="text" id="editTxDesc" value="${tx.description || ''}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                     <button class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;" onclick="deleteTransaction('${id}')">Delete (Admin)</button>
+                     <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="updateTransaction('${id}')">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('modalContainer').innerHTML = modal;
+}
+
+async function updateTransaction(id) {
+    const description = document.getElementById('editTxDesc').value;
+    try {
+        const response = await fetch(`${API_BASE}/transactions/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description })
+        });
+
+        if (response.ok) {
+            showSuccess('Transaction updated');
+            closeModal();
+            loadAllTransactions();
+        } else {
+            showError('Failed to update transaction');
+        }
+    } catch (e) {
+        showError(e.message);
+    }
+}
+
+async function deleteTransaction(id) {
+    if (!confirm('DANGER: Deleting a transaction is not recommended. Verification required. Proceed?')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/transactions/${id}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) {
+            showSuccess('Transaction deleted permanently');
+            closeModal();
+            loadDashboardData();
+        } else {
+            showError('Failed to delete');
+        }
+    } catch (e) {
+        showError(e.message);
+    }
 }
 
 // Add modal styles dynamically
